@@ -30,7 +30,7 @@ jobs:
       - run: npm audit --audit-level=high
       - name: Package the extension
         run: npm run package
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: locator-lens
           path: locator-lens-*.zip
@@ -49,7 +49,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - name: Load the real extension and test it
         run: npm run e2e
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report
