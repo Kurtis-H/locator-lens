@@ -177,3 +177,18 @@ test("says when it can't run on a page", async ({ page, worker }) => {
   });
   expect(result).toEqual({ ok: false, badge: "!" });
 });
+
+test("stays quick on a page with thousands of elements", async ({ page, toggle }) => {
+  // 4,500 elements. Before roles and names were cached per pass, turning the
+  // lens on here took about 5 seconds; now it's well under half a second.
+  await page.goto(`${BASE}/big.html`);
+  const started = Date.now();
+  await toggle();
+  await expect(lens(page).locator("[data-layer=outlines]")).toHaveAttribute("data-outlines", /^[1-9]\d*$/);
+  expect(Date.now() - started).toBeLessThan(2000);
+
+  await page.getByRole("link", { name: "Event 3", exact: true }).click({ force: true });
+  await expect(lens(page).locator("code.pw").first()).toHaveText(
+    "page.getByRole('link', { name: 'Event 3', exact: true })",
+  );
+});

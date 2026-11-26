@@ -117,6 +117,38 @@ describe("isHidden", () => {
   });
 });
 
+describe("withCache", () => {
+  it("gives the same answers as without it", () => {
+    html(`<button>Sign in</button><button>Sign in with demo key</button><div style="visibility:hidden">
+      <span id="v" style="visibility:visible">shown</span><span id="h">hidden</span></div>
+      <label>Name <input></label><button style="display:none">Sign in</button>`);
+    const els = [...document.querySelectorAll("body *")];
+    const plain = els.map((e) => [L.getRole(e), L.accessibleName(e), L.isHidden(e), L.suggest(e)]);
+    const cachedRun = L.withCache(() =>
+      els.map((e) => [L.getRole(e), L.accessibleName(e), L.isHidden(e), L.suggest(e)]));
+    expect(cachedRun).toEqual(plain);
+  });
+
+  it("lets a child override a hidden parent's visibility, in both orders", () => {
+    html('<div style="visibility:hidden"><span style="visibility:visible">x</span></div>');
+    L.withCache(() => {
+      expect(L.isHidden($("div"))).toBe(true);
+      expect(L.isHidden($("span"))).toBe(false);
+    });
+    L.withCache(() => {
+      expect(L.isHidden($("span"))).toBe(false);
+      expect(L.isHidden($("div"))).toBe(true);
+    });
+  });
+
+  it("forgets everything after the pass, so DOM changes are seen", () => {
+    html("<button>Old</button>");
+    L.withCache(() => expect(L.accessibleName($("button"))).toBe("Old"));
+    $("button").textContent = "New";
+    expect(L.accessibleName($("button"))).toBe("New");
+  });
+});
+
 describe("suggest", () => {
   it("puts a unique role and name first", () => {
     html('<button data-testid="buy">Buy 2 seats</button>');

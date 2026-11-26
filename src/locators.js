@@ -73,7 +73,36 @@
 
   const normalize = (s) => (s || "").replace(/\s+/g, " ").trim();
 
-  function getRole(el) {
+  // ---- per-pass cache ----
+  //
+  // Ranking one element compares it with every other element on the page, so
+  // drawing outlines for hundreds of elements would recompute the same roles,
+  // names and styles over and over. withCache() remembers them for one pass
+  // over a page that isn't changing (one redraw, one hover).
+  let cache = null;
+
+  function withCache(fn) {
+    if (cache) return fn();
+    cache = { role: new WeakMap(), name: new WeakMap(), hidden: new WeakMap(), ancestor: new WeakMap(), all: null, byRole: null };
+    try {
+      return fn();
+    } finally {
+      cache = null;
+    }
+  }
+
+  function cached(kind, el, compute) {
+    if (!cache) return compute(el);
+    const map = cache[kind];
+    if (map.has(el)) return map.get(el);
+    const value = compute(el);
+    map.set(el, value);
+    return value;
+  }
+
+  const getRole = (el) => cached("role", el, computeRole);
+
+  function computeRole(el) {
     const explicit = normalize(el.getAttribute("role")).split(" ")[0];
     if (explicit) return explicit;
     const tag = el.tagName.toLowerCase();
@@ -97,15 +126,21 @@
   }
 
   // Hidden from the accessibility tree, the way Playwright's getByRole sees it.
-  function isHidden(el) {
-    for (let node = el; node && node.nodeType === 1; node = node.parentElement) {
-      if (node.hidden || node.getAttribute("aria-hidden") === "true") return true;
-      const style = node.ownerDocument.defaultView.getComputedStyle(node);
-      if (style.display === "none") return true;
-      if (node === el && style.visibility === "hidden") return true;
-    }
-    return false;
+  const isHidden = (el) => cached("hidden", el, computeHidden);
+
+  function computeHidden(el) {
+    if (el.getAttribute("aria-hidden") === "true" || el.hidden) return true;
+    const style = el.ownerDocument.defaultView.getComputedStyle(el);
+    if (style.display === "none" || style.visibility === "hidden") return true;
+    return el.parentElement ? hiddenAncestor(el.parentElement) : false;
   }
+
+  // visibility can be overridden by a child, so only these count from above.
+  const hiddenAncestor = (el) => cached("ancestor", el, (node) => {
+    if (node.getAttribute("aria-hidden") === "true" || node.hidden) return true;
+    if (node.ownerDocument.defaultView.getComputedStyle(node).display === "none") return true;
+    return node.parentElement ? hiddenAncestor(node.parentElement) : false;
+  });
 
   function textFromContent(el) {
     let out = "";
@@ -129,7 +164,9 @@
     return normalize(parts.join(" ")) || null;
   }
 
-  function accessibleName(el) {
+  const accessibleName = (el) => cached("name", el, computeName);
+
+  function computeName(el) {
     const doc = el.ownerDocument;
     const labelledBy = normalize(el.getAttribute("aria-labelledby"));
     if (labelledBy) {
@@ -178,12 +215,29 @@
   const includesCI = (haystack, needle) => haystack.toLowerCase().includes(needle.toLowerCase());
 
   function all(doc) {
-    return Array.from(doc.body ? doc.body.querySelectorAll("*") : []);
+    if (cache && cache.all) return cache.all;
+    const list = Array.from(doc.body ? doc.body.querySelectorAll("*") : []);
+    if (cache) cache.all = list;
+    return list;
+  }
+
+  // Visible elements grouped by role, so counting one role doesn't scan the page.
+  function withRole(doc, role) {
+    if (!cache) return all(doc).filter((el) => getRole(el) === role && !isHidden(el));
+    if (!cache.byRole) {
+      cache.byRole = new Map();
+      for (const el of all(doc)) {
+        const r = getRole(el);
+        if (!r) continue;
+        if (!cache.byRole.has(r)) cache.byRole.set(r, []);
+        cache.byRole.get(r).push(el);
+      }
+    }
+    return (cache.byRole.get(role) || []).filter((el) => !isHidden(el));
   }
 
   function countRole(doc, role, name, exact) {
-    return all(doc).filter((el) => {
-      if (getRole(el) !== role || isHidden(el)) return false;
+    return withRole(doc, role).filter((el) => {
       if (name === null) return true;
       const n = accessibleName(el);
       return exact ? n === name : includesCI(n, name);
@@ -370,6 +424,8 @@
   }
 
   root.LocatorLens = {
-    getRole, accessibleName, isHidden, suggest, grade, cssPath, cssString, looksGenerated, quote,
+    getRole, accessibleName, isHidden, withCache,
+    suggest: (el) => withCache(() => suggest(el)),
+    grade: (el) => withCache(() => grade(el)), cssPath, cssString, looksGenerated, quote,
   };
 })(globalThis);

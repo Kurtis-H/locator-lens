@@ -55,7 +55,7 @@
   `;
 
   const state = { on: false, host: null, root: null, layer: null, hoverBox: null, tip: null, panel: null,
-    hovered: null, raf: 0 };
+    hovered: null, tipFor: null, raf: 0 };
 
   const el = (tag, props = {}, children = []) => {
     const node = document.createElement(tag);
@@ -85,21 +85,24 @@
     return r;
   }
 
-  function drawOutlines() {
-    state.layer.querySelectorAll(".box").forEach((b) => b.remove());
-    let drawn = 0;
+  // One cached pass: every grade compares against the whole page, so roles,
+  // names and visibility are worked out once per redraw, not per outline.
+  const drawOutlines = () => L.withCache(() => {
+    const boxes = [];
     for (const node of document.querySelectorAll(OUTLINE_SELECTOR)) {
-      if (drawn >= MAX_OUTLINES) break;
-      if (isOurs(node) || L.isHidden(node)) continue;
+      if (boxes.length >= MAX_OUTLINES) break;
+      if (isOurs(node)) continue;
       const rect = visibleRect(node);
-      if (!rect) continue;
-      const box = el("div", { class: "box " + L.grade(node), "data-grade": L.grade(node) });
+      if (!rect || L.isHidden(node)) continue;
+      const grade = L.grade(node);
+      const box = el("div", { class: "box " + grade, "data-grade": grade });
       place(box, rect);
-      state.layer.append(box);
-      drawn++;
+      boxes.push(box);
     }
-    state.layer.dataset.outlines = String(drawn);
-  }
+    state.layer.querySelectorAll(".box").forEach((b) => b.remove());
+    state.layer.prepend(...boxes);
+    state.layer.dataset.outlines = String(boxes.length);
+  });
 
   const redraw = () => {
     cancelAnimationFrame(state.raf);
@@ -114,7 +117,11 @@
     const rect = node.getBoundingClientRect();
     place(state.hoverBox, rect);
     state.hoverBox.hidden = false;
-    state.tip.textContent = L.suggest(node)[0].playwright;
+    // Moving within the same element doesn't need a new ranking.
+    if (state.tipFor !== node) {
+      state.tip.textContent = L.suggest(node)[0].playwright;
+      state.tipFor = node;
+    }
     state.tip.hidden = false;
     const below = rect.bottom + 6;
     state.tip.style.left = Math.max(4, Math.min(rect.left, innerWidth - 530)) + "px";
@@ -184,6 +191,7 @@
       state.hoverBox.hidden = true;
       state.tip.hidden = true;
       state.hovered = null;
+      state.tipFor = null;
       return;
     }
     state.hovered = node;
@@ -246,7 +254,7 @@
     cancelAnimationFrame(state.raf);
     state.host?.remove();
     Object.assign(state, { on: false, host: null, root: null, layer: null, hoverBox: null, tip: null,
-      panel: null, hovered: null });
+      panel: null, hovered: null, tipFor: null });
   }
 
   globalThis.__locatorLens = { toggle: () => (state.on ? stop() : start()), isOn: () => state.on };
