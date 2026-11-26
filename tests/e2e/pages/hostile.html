@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Hostile test page</title>
+  <style>
+    /* Aggressive page CSS that must not reach the lens. */
+    * { font-family: "Comic Sans MS", cursive !important; color: magenta !important; }
+    div { display: block !important; }
+  </style>
+</head>
+<body>
+  <button id="evil">&lt;img src=x onerror="window.pwned=1"&gt;</button>
+  <a href="https://example.invalid/leave" id="away">Leave this page</a>
+  <p data-testid='quote"s'>It's a "quoted" \ back\slash</p>
+  <script>
+    window.pwned = 0;
+    // A page that stops click propagation everywhere.
+    document.addEventListener("click", (e) => e.stopImmediatePropagation(), true);
+  </script>
+</body>
+</html>
