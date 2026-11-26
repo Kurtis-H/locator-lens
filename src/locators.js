@@ -230,6 +230,12 @@
     return String(value).replace(/[^a-zA-Z0-9_-]/g, (c) => "\\" + c).replace(/^(\d)/, "\\3$1 ");
   }
 
+  // Escape for a double-quoted CSS string: backslashes first, then quotes and
+  // newlines (which can't appear raw in a CSS string).
+  function cssString(value) {
+    return String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\a ");
+  }
+
   // Ids like ":r1:", "radix-42" or "ember1234" change between builds.
   function looksGenerated(id) {
     return /^:|:$|\d{3,}|[a-f0-9]{8,}|^(ember|react|radix|mui|headlessui)[-_]?\d/i.test(id);
@@ -338,7 +344,7 @@
       out.push(candidate(
         "testid", count,
         `page.getByTestId(${quote(testId)})`,
-        `cy.get(${quote(`[data-testid="${testId.replace(/"/g, '\\"')}"]`)})`,
+        `cy.get(${quote(`[data-testid="${cssString(testId)}"]`)})`,
       ));
     }
 
@@ -364,6 +370,6 @@
   }
 
   root.LocatorLens = {
-    getRole, accessibleName, isHidden, suggest, grade, cssPath, looksGenerated, quote,
+    getRole, accessibleName, isHidden, suggest, grade, cssPath, cssString, looksGenerated, quote,
   };
 })(globalThis);

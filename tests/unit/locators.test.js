@@ -229,6 +229,19 @@ describe("suggest", () => {
   });
 });
 
+describe("Cypress test-id selectors", () => {
+  // Run the generated code with a fake cy that hands back the selector.
+  const selectorFrom = (code) => new Function("cy", `return ${code};`)({ get: (sel) => sel });
+
+  it.each(["plain", 'say "hi"', "back\\slash", 'both \\"', "new\nline"])("finds a test id of %j", (id) => {
+    const div = document.createElement("div");
+    div.setAttribute("data-testid", id);
+    document.body.append(div);
+    const t = L.suggest(div).find((c) => c.kind === "testid");
+    expect(document.querySelector(selectorFrom(t.cypress))).toBe(div);
+  });
+});
+
 describe("cssPath", () => {
   it("uses a stable id", () => {
     html('<div id="seat-map"><button>1</button></div>');

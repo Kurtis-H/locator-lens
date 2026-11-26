@@ -65,7 +65,7 @@ It has no host permissions, no always-on content scripts, no network requests an
 
 | | |
 |---|---|
-| Unit (Vitest + jsdom, 74 tests) | Roles for every common element, each accessible-name rule, ranking, substring vs exact matching, hidden elements, CSS fallbacks, generated ids, escaping, and the manifest's permissions. Coverage gate at 95% |
+| Unit (Vitest + jsdom, 79 tests) | Roles for every common element, each accessible-name rule, ranking, substring vs exact matching, hidden elements, CSS fallbacks, generated ids, escaping, and the manifest's permissions. Coverage gate at 95% |
 | Extension (Playwright, 14 tests) | Loads the real extension into Chromium and drives it like a user: outlines, hover, picking, copy to clipboard, Escape, toggling, disabled controls, and the badge on pages it can't run on |
 | The sweep | Clicks **every** element on a test page full of traps, takes the top suggestion, runs it in Playwright and checks it finds exactly that element. Planting a bug in the exact-match logic makes it fail on the right buttons |
 | Hostile page | A page whose text is an `<img onerror>` payload, which stops click propagation and has aggressive CSS. The payload stays text, nothing runs, links don't navigate, and the panel keeps its own styles |
